@@ -38,7 +38,7 @@ yarn-error.log*
 next-env.d.ts
 
 # npm
-package-lock.json
+# package-lock.json  # この行をコメントアウトまたは削除
 
 # yarn
 .pnp.cjs
