@@ -4,10 +4,10 @@ export const API_KEY = `${process.env.NEXT_PUBLIC_APP_KEY}`
 export const API_URL = `${process.env.NEXT_PUBLIC_API_URL}`
 export const APP_INFO: AppInfo = {
   title: 'Chat APP',
-  description: '',
-  copyright: '',
-  privacy_policy: '',
-  default_language: 'en',
+  description: 'This is a poc of front-end dify',
+  copyright: '@kenjitakamura',
+  privacy_policy: 'No',
+  default_language: 'ja',
 }
 
 export const isShowPrompt = false
