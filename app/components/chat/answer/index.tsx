@@ -193,7 +193,7 @@ const Answer: FC<IAnswerProps> = ({
                 : (isAgentMode
                   ? agentModeAnswer
                   : (
-                    <Markdown content={content} />
+                    <Markdown content={content} files={item.message_files} />
                   ))}
               {suggestedQuestions.length > 0 && (
                 <div className='mt-3'>

@@ -9,6 +9,9 @@ import { ChatBubbleOvalLeftEllipsisIcon as ChatBubbleOvalLeftEllipsisSolidIcon }
 import Button from '@/app/components/base/button'
 // import Card from './card'
 import type { ConversationItem } from '@/types/app'
+import { RiDeleteBinLine, RiPencilLine } from '@remixicon/react'
+import cn from '@/utils/classnames'
+import { deleteConversation, renameConversation } from '@/service'
 
 function classNames(...classes: any[]) {
   return classes.filter(Boolean).join(' ')
@@ -21,6 +24,7 @@ export type ISidebarProps = {
   currentId: string
   onCurrentIdChange: (id: string) => void
   list: ConversationItem[]
+  width?: number
 }
 
 const Sidebar: FC<ISidebarProps> = ({
@@ -28,11 +32,13 @@ const Sidebar: FC<ISidebarProps> = ({
   currentId,
   onCurrentIdChange,
   list,
+  width,
 }) => {
   const { t } = useTranslation()
   return (
     <div
       className="shrink-0 flex flex-col overflow-y-auto bg-white pc:w-[244px] tablet:w-[192px] mobile:w-[240px]  border-r border-gray-200 tablet:h-[calc(100vh_-_3rem)] mobile:h-screen"
+      style={width ? { width: `${width}px` } : undefined}
     >
       {list.length < MAX_CONVERSATION_LENTH && (
         <div className="flex flex-shrink-0 p-4 !pb-0">
@@ -50,26 +56,82 @@ const Sidebar: FC<ISidebarProps> = ({
           const ItemIcon
             = isCurrent ? ChatBubbleOvalLeftEllipsisSolidIcon : ChatBubbleOvalLeftEllipsisIcon
           return (
-            <div
-              onClick={() => onCurrentIdChange(item.id)}
-              key={item.id}
-              className={classNames(
-                isCurrent
-                  ? 'bg-primary-50 text-primary-600'
-                  : 'text-gray-700 hover:bg-gray-100 hover:text-gray-700',
-                'group flex items-center rounded-md px-2 py-2 text-sm font-medium cursor-pointer',
-              )}
-            >
-              <ItemIcon
+            <div key={item.id} className='group flex items-center rounded-md px-2 py-2 text-sm gap-1'>
+              <div
+                onClick={() => onCurrentIdChange(item.id)}
                 className={classNames(
                   isCurrent
-                    ? 'text-primary-600'
-                    : 'text-gray-400 group-hover:text-gray-500',
-                  'mr-3 h-5 w-5 flex-shrink-0',
+                    ? 'bg-primary-50 text-primary-600'
+                    : 'text-gray-700 hover:bg-gray-100 hover:text-gray-700',
+                  'flex items-center rounded-md px-2 py-2 font-medium flex-1 min-w-0',
                 )}
-                aria-hidden="true"
-              />
-              {item.name}
+              >
+                <ItemIcon
+                  className={classNames(
+                    isCurrent
+                      ? 'text-primary-600'
+                      : 'text-gray-400 group-hover:text-gray-500',
+                    'mr-3 h-5 w-5 flex-shrink-0',
+                  )}
+                  aria-hidden="true"
+                />
+                <div className='min-w-0'>
+                  <div className='truncate'>{item.name}</div>
+                  <div className='text-xs text-gray-400'>
+                    {(() => {
+                      const anyItem: any = item as any
+                      const ts = anyItem?.updated_at || anyItem?.created_at
+                      if (!ts)
+                        return ''
+                      const ms = typeof ts === 'number' ? (ts < 1e12 ? ts * 1000 : ts) : Date.parse(ts)
+                      if (Number.isNaN(ms))
+                        return ''
+                      return new Date(ms).toLocaleDateString('ja-JP')
+                    })()}
+                  </div>
+                </div>
+              </div>
+              <div className='ml-2 shrink-0 flex items-center gap-1'>
+                <button
+                  className={cn('p-1 rounded hover:bg-gray-100')}
+                  onClick={async (e) => {
+                    e.stopPropagation()
+                    const name = globalThis.prompt('チャット名を入力', item.name)
+                    if (name && name !== item.name) {
+                      await renameConversation(item.id, name)
+                      // 軽量更新: フロントのリストを書き換える
+                      const el = list.find(i => i.id === item.id)
+                      if (el)
+                        el.name = name
+                    }
+                  }}
+                  title='名称変更'
+                >
+                  <RiPencilLine className='w-4 h-4 text-gray-500' />
+                </button>
+                <button
+                  className={cn('p-1 rounded hover:bg-gray-100')}
+                  onClick={async (e) => {
+                    e.stopPropagation()
+                    if (globalThis.confirm('このチャットを削除しますか？')) {
+                      await deleteConversation(item.id)
+                      // 親側の onCurrentIdChange 経由でリスト再取得していないため、
+                      // 手元の配列から除外して軽量更新。
+                      const idx = list.findIndex(i => i.id === item.id)
+                      if (idx > -1) {
+                        list.splice(idx, 1)
+                        if (currentId === item.id && list[0])
+                          onCurrentIdChange(list[0].id)
+                        else
+                          onCurrentIdChange(currentId)
+                      }
+                    }
+                  }}
+                  title='削除'
+                >
+                  <RiDeleteBinLine className='w-4 h-4 text-gray-500' />
+                </button>
+              </div>
             </div>
           )
         })}

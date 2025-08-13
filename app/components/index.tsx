@@ -12,6 +12,7 @@ import ConfigSence from '@/app/components/config-scence'
 import Header from '@/app/components/header'
 import { fetchAppParams, fetchChatList, fetchConversations, generationConversationName, sendChatMessage, updateFeedback } from '@/service'
 import type { ChatItem, ConversationItem, Feedbacktype, PromptConfig, VisionFile, VisionSettings } from '@/types/app'
+import type { FileUpload } from '@/app/components/base/file-uploader-in-attachment/types'
 import { Resolution, TransferMethod, WorkflowRunningStatus } from '@/types/app'
 import Chat from '@/app/components/chat'
 import { setLocaleOnClient } from '@/i18n/client'
@@ -32,6 +33,27 @@ const Main: FC<IMainProps> = () => {
   const media = useBreakpoints()
   const isMobile = media === MediaType.mobile
   const hasSetAppConfig = APP_ID && API_KEY
+  const [sidebarWidth, setSidebarWidth] = useState<number>(244)
+  const [isResizing, setIsResizing] = useState(false)
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!isResizing) return
+      const min = 180
+      const max = 420
+      const x = e.clientX
+      const newW = Math.min(max, Math.max(min, x))
+      setSidebarWidth(newW)
+    }
+    const onUp = () => setIsResizing(false)
+    if (isResizing) {
+      window.addEventListener('mousemove', onMove)
+      window.addEventListener('mouseup', onUp)
+    }
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+  }, [isResizing])
 
   /*
   * app info
@@ -48,11 +70,13 @@ const Main: FC<IMainProps> = () => {
     detail: Resolution.low,
     transfer_methods: [TransferMethod.local_file],
   })
+  const [fileUpload, setFileUpload] = useState<FileUpload | undefined>(undefined)
 
+  const [appTitle, setAppTitle] = useState<string>(APP_INFO.title)
   useEffect(() => {
-    if (APP_INFO?.title)
-      document.title = `${APP_INFO.title} - Powered by Dify`
-  }, [APP_INFO?.title])
+    if (appTitle)
+      document.title = `${appTitle} - Powered by Dify`
+  }, [appTitle])
 
   // onData change thought (the produce obj). https://github.com/immerjs/immer/issues/576
   useEffect(() => {
@@ -241,7 +265,8 @@ const Main: FC<IMainProps> = () => {
         const isNotNewConversation = !!currentConversation
 
         // fetch new conversation info
-        const { user_input_form, opening_statement: introduction, file_upload, system_parameters, suggested_questions = [] }: any = appParams
+        const { app_name, user_input_form, opening_statement: introduction, file_upload, system_parameters, suggested_questions = [] }: any = appParams
+        if (app_name) setAppTitle(app_name)
         setLocaleOnClient(APP_INFO.default_language, true)
         setNewConversationInfo({
           name: t('app.chat.newChatDefaultName'),
@@ -264,6 +289,7 @@ const Main: FC<IMainProps> = () => {
           ...file_upload?.image,
           image_file_size_limit: system_parameters?.system_parameters || 0,
         })
+        setFileUpload(file_upload)
         setConversationList(conversations as ConversationItem[])
 
         if (isNotNewConversation)
@@ -373,7 +399,7 @@ const Main: FC<IMainProps> = () => {
       conversation_id: isNewConversation ? null : currConversationId,
     }
 
-    if (visionConfig?.enabled && files && files?.length > 0) {
+    if (files && files?.length > 0) {
       data.files = files.map((item) => {
         if (item.transfer_method === TransferMethod.local_file) {
           return {
@@ -644,6 +670,7 @@ const Main: FC<IMainProps> = () => {
         onCurrentIdChange={handleConversationIdChange}
         currentId={currConversationId}
         copyRight={APP_INFO.copyright || APP_INFO.title}
+        width={sidebarWidth}
       />
     )
   }
@@ -657,14 +684,22 @@ const Main: FC<IMainProps> = () => {
   return (
     <div className='bg-gray-100'>
       <Header
-        title={APP_INFO.title}
+        title={appTitle}
         isMobile={isMobile}
         onShowSideBar={showSidebar}
         onCreateNewChat={() => handleConversationIdChange('-1')}
       />
       <div className="flex rounded-t-2xl bg-white overflow-hidden">
         {/* sidebar */}
-        {!isMobile && renderSidebar()}
+        {!isMobile && (
+          <>
+            {renderSidebar()}
+            <div
+              onMouseDown={() => setIsResizing(true)}
+              className='cursor-col-resize w-[3px] bg-gray-200 hover:bg-gray-300'
+            />
+          </>
+        )}
         {isMobile && isShowSidebar && (
           <div className='fixed inset-0 z-50'
             style={{ backgroundColor: 'rgba(35, 56, 118, 0.2)' }}
@@ -691,7 +726,7 @@ const Main: FC<IMainProps> = () => {
 
           {
             hasSetInputs && (
-              <div className='relative grow h-[200px] pc:w-[794px] max-w-full mobile:w-full pb-[66px] mx-auto mb-3.5 overflow-hidden'>
+              <div className={`relative grow h-[200px] w-full ${(visionConfig?.enabled || fileUpload?.enabled) ? 'pb-[160px]' : 'pb-[66px]'} mb-3.5 overflow-hidden`}>
                 <div className='h-full overflow-y-auto' ref={chatListDomRef}>
                   <Chat
                     chatList={chatList}
@@ -700,6 +735,7 @@ const Main: FC<IMainProps> = () => {
                     isResponding={isResponding}
                     checkCanSend={checkCanSend}
                     visionConfig={visionConfig}
+                    fileUpload={fileUpload}
                   />
                 </div>
               </div>)
